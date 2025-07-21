@@ -41,6 +41,23 @@ body {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+.logo.clickable {
+    cursor: pointer !important;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.logo.clickable:hover {
+    cursor: pointer !important;
+    transform: scale(1.05);
+    color: #22d3ee;
+    text-shadow: 2px 2px 8px rgba(34, 211, 238, 0.4);
+}
+
+.logo.clickable:active {
+    transform: scale(0.98);
+}
+
 .tagline {
     font-size: 1.1rem;
     opacity: 0.9;

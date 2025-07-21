@@ -65,6 +65,11 @@ function showWelcome() {
     document.getElementById('welcome').classList.remove('hidden');
 }
 
+function goToHome() {
+    console.log('🏠 Navigating to home screen...');
+    showWelcome();
+}
+
 function showSetupForm() {
     hideAllSections();
     document.getElementById('setup').classList.remove('hidden');
