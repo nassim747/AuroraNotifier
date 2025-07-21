@@ -1,0 +1,128 @@
+# Aurora Alert App — Project Starter Pack
+
+## 1. Project Goal
+
+Push a real‑time mobile/web notification when the probability of seeing an aurora within ***R* km** of a user’s location crosses a configurable threshold, accounting for daylight and cloud cover. The MVP targets Canada (high aurora interest) but works globally.
+
+## 2. Action Plan (checklist)
+
+1. **Repo & environment**
+
+   * Create repo `aurora-alert`.
+   * Init Poetry; core deps:
+     `httpx`, `pydantic`, `pandas`, `numpy`, `geopy`, `shapely`, `astral`, `fastapi`, `uvicorn`, `apscheduler`, `firebase-admin`, `python-dotenv`.
+   * `.env` keys: `OPENWEATHER_KEY`, `FCM_SERVER_KEY`.
+
+2. **Data ingestion services** (`src/ingest/`)
+
+   * **Ovation Prime grid**
+     `GET https://services.swpc.noaa.gov/json/ovation_aurora_latest.json` (5‑min cadence).
+   * **Planetary Kp now‑cast**
+     `https://services.swpc.noaa.gov/json/kp_index_now.json` (3‑hr cadence).
+   * **Cloud cover & weather**:
+     OpenWeather OneCall 3.0 (`lat,lon`, current + hourly forecast).
+
+3. **Core engine** (`src/engine/`)
+
+   1. Parse grid → DataFrame \[`lat`,`lon`,`prob`].
+   2. For each **user**: find cells within Haversine radius `R` using `geopy.distance`.
+   3. Calculate `max_prob` and `mean_prob`.
+   4. Compute daylight flag with `astral` (`sun.altitude < -6°`).
+   5. Pull cloud cover for user’s lat/lon; reject if `cloud_pct > 40`.
+   6. Decision rule: `notify ⇔ (prob ≥ T) ∧ night ∧ clouds_ok ∧ (now - last_notified > cool_down)`.
+
+4. **APIs & persistence**
+
+   * **FastAPI** (`app/main.py`):
+
+     * `POST /subscribe`  `{lat, lon, radius_km, token}`
+     * `PATCH /prefs`  `{radius_km?, threshold?}`
+     * `DELETE /unsubscribe`
+     * `GET /status` for health.
+   * SQLite (or TinyDB) table `users` with fields above + `last_notified`.
+
+5. **Scheduler**
+
+   * `apscheduler` job every 5 min: pull fresh data → run engine → push notifications via FCM.
+
+6. **Notification service** (`src/notify/`)
+
+   * Wrap Firebase Cloud Messaging; payload includes probability and quick tips (e.g. “look North, low clouds”).
+
+7. **Optional frontend**
+
+   * Small Svelte/React PWA or Streamlit dashboard overlaying probability PNG on leaflet map + toggle for personal radius.
+
+8. **CI/CD & Ops**
+
+   * GitHub Actions: lint + tests → build Docker → deploy to Fly.io.
+   * `Dockerfile` multi‑stage (slim) + healthcheck.
+
+9. **Milestones (6‑week MVP)**
+   \| Week | Deliverable |
+   \| --- | --- |
+   \| 1 | Repo scaffold, env, Ovation grid fetcher |
+   \| 2 | Engine prototype with hard‑coded lat/lon, CLI output |
+   \| 3 | FastAPI endpoints + SQLite user store |
+   \| 4 | FCM integration, scheduled alerts to test device |
+   \| 5 | Cloud‑cover filtering + daylight logic; internal dog‑food during geomagnetic event |
+   \| 6 | Deploy to Fly.io, polish README & marketing screenshots |
+
+---
+
+## 3. API Cheat‑Sheet
+
+### Ovation Prime Grid (NOAA SWPC)
+
+```
+https://services.swpc.noaa.gov/json/ovation_aurora_latest.json
+```
+
+Fields per cell: `Probability`, `Power`, `GeomagneticLat`, `GeomagneticLon`.
+
+### KP Index Now (SWPC)
+
+```
+https://services.swpc.noaa.gov/json/kp_index_now.json
+```
+
+Array of last 28 3‑hr Kp values.
+
+### OpenWeather OneCall 3.0 (clouds)
+
+```
+https://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&appid={OPENWEATHER_KEY}
+```
+
+Use `current.clouds` or nearest `hourly[i].clouds`.
+
+---
+
+## 4. Directory Blueprint
+
+```
+aurora-alert/
+├─ src/
+│  ├─ ingest/
+│  ├─ engine/
+│  ├─ notify/
+│  ├─ api/
+│  └─ utils/
+├─ data/cache/
+├─ tests/
+├─ Dockerfile
+└─ README.md
+```
+
+---
+
+## 5. Decision‑Rule Parameters (defaults)
+
+| Var              | Default | Note                     |
+| ---------------- | ------- | ------------------------ |
+| `RADIUS_KM`      | 250     | user‑configurable        |
+| `PROB_THRESHOLD` | 15 %    | tweak after beta testing |
+| `CLOUD_MAX`      | 40 %    | over this, skip          |
+| `COOLDOWN_H`     | 3 h     | avoid spam               |
+
+---
