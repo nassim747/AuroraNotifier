@@ -1,0 +1,64 @@
+databases:
+  - name: aurora-alert-db
+    databaseName: aurora_alert
+    user: aurora_user
+
+services:
+  - type: web
+    name: aurora-alert-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /status
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aurora-alert-db
+          property: connectionString
+      - key: OPENWEATHER_KEY
+        sync: false
+      - key: FCM_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: RADIUS_KM
+        value: "250"
+      - key: PROB_THRESHOLD
+        value: "15"
+      - key: CLOUD_MAX
+        value: "40"
+      - key: COOLDOWN_H
+        value: "3"
+      - key: CHECK_INTERVAL_MIN
+        value: "5"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: PYTHONPATH
+        value: "/opt/render/project/src"
+
+  - type: worker
+    name: aurora-alert-scheduler
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m src.scheduler
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aurora-alert-db
+          property: connectionString
+      - key: OPENWEATHER_KEY
+        sync: false
+      - key: FCM_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: RADIUS_KM
+        value: "250"
+      - key: PROB_THRESHOLD
+        value: "15"
+      - key: CLOUD_MAX
+        value: "40"
+      - key: COOLDOWN_H
+        value: "3"
+      - key: CHECK_INTERVAL_MIN
+        value: "5"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: PYTHONPATH
+        value: "/opt/render/project/src"
