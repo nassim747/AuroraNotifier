@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, RedirectResponse
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from .database import Database
 from .schemas import (
@@ -30,6 +33,11 @@ app.add_middleware(
 )
 
 db = Database()
+
+# Mount static files for frontend
+frontend_path = Path(__file__).parent.parent.parent / "frontend"
+if frontend_path.exists():
+    app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
 
 
 def get_database():
@@ -150,12 +158,39 @@ async def get_status(database: Database = Depends(get_database)):
         )
 
 
+@app.get("/app")
+async def serve_frontend():
+    """Serve the frontend application."""
+    frontend_path = Path(__file__).parent.parent.parent / "frontend" / "index.html"
+    if frontend_path.exists():
+        return FileResponse(str(frontend_path))
+    else:
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+@app.get("/{filename}")
+async def serve_static_file(filename: str):
+    """Serve static files from frontend directory."""
+    frontend_path = Path(__file__).parent.parent.parent / "frontend" / filename
+    if frontend_path.exists() and frontend_path.is_file():
+        return FileResponse(str(frontend_path))
+    else:
+        # If file not found, serve the main app (for SPA routing)
+        return await serve_frontend()
+
+
 @app.get("/")
 async def root():
-    """Root endpoint."""
+    """Redirect to frontend app."""
+    return RedirectResponse(url="/app")
+
+
+@app.get("/api")
+async def api_info():
+    """API information endpoint."""
     return {
         "message": "Aurora Alert API",
         "version": "1.0.0",
+        "frontend": "GET /app",
         "endpoints": {
             "subscribe": "POST /subscribe",
             "update_prefs": "PATCH /prefs?token=<fcm_token>",

@@ -4,12 +4,22 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from .ingest.aurora_data import AuroraDataFetcher
-from .ingest.weather_data import WeatherDataFetcher
-from .engine.aurora_engine import AuroraEngine
-from .notify.fcm_service import FCMService
-from .api.database import Database
-from .utils.config import settings
+try:
+    # Try relative imports (when run as module)
+    from .ingest.aurora_data import AuroraDataFetcher
+    from .ingest.weather_data import WeatherDataFetcher
+    from .engine.aurora_engine import AuroraEngine
+    from .notify.fcm_service import FCMService
+    from .api.database import Database
+    from .utils.config import settings
+except ImportError:
+    # Fall back to absolute imports (when run directly)
+    from ingest.aurora_data import AuroraDataFetcher
+    from ingest.weather_data import WeatherDataFetcher
+    from engine.aurora_engine import AuroraEngine
+    from notify.fcm_service import FCMService
+    from api.database import Database
+    from utils.config import settings
 
 logging.basicConfig(level=getattr(logging, settings.log_level))
 logger = logging.getLogger(__name__)

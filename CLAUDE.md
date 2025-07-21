@@ -47,7 +47,7 @@ mypy src/
 
 Required environment variables (store in `.env`):
 - `OPENWEATHER_KEY`: OpenWeather API key for cloud cover data
-- `FCM_SERVER_KEY`: Firebase Cloud Messaging server key for notifications
+- `FCM_SERVICE_ACCOUNT_JSON`: Firebase service account JSON (complete JSON as string) for notifications
 
 ## Key Data Sources
 

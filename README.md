@@ -44,7 +44,7 @@ A real-time aurora notification system that sends push notifications when aurora
 ## Environment Variables
 
 - `OPENWEATHER_KEY` - OpenWeather API key for cloud data
-- `FCM_SERVER_KEY` - Firebase Cloud Messaging server key
+- `FCM_SERVICE_ACCOUNT_JSON` - Firebase service account JSON (complete JSON as string)
 - `RADIUS_KM` - Default search radius (250km)
 - `PROB_THRESHOLD` - Default aurora probability threshold (15%)
 - `CLOUD_MAX` - Maximum cloud coverage (40%)

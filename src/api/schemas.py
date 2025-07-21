@@ -7,7 +7,7 @@ class SubscribeRequest(BaseModel):
     lon: float = Field(..., ge=-180, le=180, description="Longitude") 
     radius_km: int = Field(250, ge=50, le=1000, description="Search radius in kilometers")
     threshold: int = Field(15, ge=1, le=100, description="Aurora probability threshold percentage")
-    token: str = Field(..., description="FCM device token")
+    token: str = Field(..., description="FCM device token", alias="fcm_token")
 
 
 class UpdatePreferencesRequest(BaseModel):

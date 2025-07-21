@@ -11,7 +11,7 @@ Push a real‑time mobile/web notification when the probability of seeing an aur
    * Create repo `aurora-alert`.
    * Init Poetry; core deps:
      `httpx`, `pydantic`, `pandas`, `numpy`, `geopy`, `shapely`, `astral`, `fastapi`, `uvicorn`, `apscheduler`, `firebase-admin`, `python-dotenv`.
-   * `.env` keys: `OPENWEATHER_KEY`, `FCM_SERVER_KEY`.
+   * `.env` keys: `OPENWEATHER_KEY`, `FCM_SERVICE_ACCOUNT_JSON`.
 
 2. **Data ingestion services** (`src/ingest/`)
 

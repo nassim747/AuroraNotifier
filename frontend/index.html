@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora Alert - Northern Lights Notifications</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">🌌 Aurora Alert</h1>
+            <p class="tagline">Never miss the northern lights again</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            
+            <!-- Welcome Section -->
+            <section class="welcome-section" id="welcome">
+                <h2>Get Real-time Aurora Notifications</h2>
+                <p>Receive push notifications when aurora activity is high in your area. Set your location and preferences to get started.</p>
+                
+                <div class="features">
+                    <div class="feature">
+                        <span class="feature-icon">📍</span>
+                        <h3>Location-Based</h3>
+                        <p>Customizable search radius around your location</p>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">🌙</span>
+                        <h3>Smart Filtering</h3>
+                        <p>Only notifies during night hours for optimal viewing</p>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">🔔</span>
+                        <h3>Push Notifications</h3>
+                        <p>Instant alerts when conditions are favorable</p>
+                    </div>
+                </div>
+
+                <button class="cta-button" onclick="showSetupForm()">Get Started</button>
+            </section>
+
+            <!-- Setup Form -->
+            <section class="setup-section hidden" id="setup">
+                <h2>Setup Your Aurora Alerts</h2>
+                <form class="setup-form" id="setupForm">
+                    
+                    <!-- Location Section -->
+                    <div class="form-group">
+                        <label for="location">Your Location</label>
+                        <div class="location-input">
+                            <input type="text" id="location" placeholder="Enter city or address" required>
+                            <button type="button" onclick="getCurrentLocation()">📍 Use Current Location</button>
+                        </div>
+                        <div class="location-coords hidden" id="locationCoords">
+                            <span>Latitude: <span id="lat">--</span></span>
+                            <span>Longitude: <span id="lon">--</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Preferences Section -->
+                    <div class="form-group">
+                        <label for="radius">Search Radius</label>
+                        <div class="slider-container">
+                            <input type="range" id="radius" min="50" max="500" value="250" oninput="updateSliderValue('radius', 'radiusValue', ' km')">
+                            <span class="slider-value" id="radiusValue">250 km</span>
+                        </div>
+                        <small>How far from your location to check for aurora activity</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="threshold">Aurora Probability Threshold</label>
+                        <div class="slider-container">
+                            <input type="range" id="threshold" min="5" max="50" value="15" oninput="updateSliderValue('threshold', 'thresholdValue', '%')">
+                            <span class="slider-value" id="thresholdValue">15%</span>
+                        </div>
+                        <small>Minimum aurora probability to trigger notifications</small>
+                    </div>
+
+                    <!-- Notification Permission -->
+                    <div class="form-group">
+                        <div class="notification-permission" id="notificationStatus">
+                            <span class="status-icon">🔔</span>
+                            <span class="status-text">Click to enable push notifications</span>
+                            <button type="button" onclick="requestNotificationPermission()">Enable Notifications</button>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="submit-button" disabled id="submitButton">
+                            Subscribe to Aurora Alerts
+                        </button>
+                        <button type="button" class="secondary-button" onclick="showWelcome()">Back</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Dashboard -->
+            <section class="dashboard-section hidden" id="dashboard">
+                <h2>Your Aurora Dashboard</h2>
+                
+                <div class="status-cards">
+                    <div class="status-card">
+                        <h3>Current Status</h3>
+                        <div class="status-indicator" id="alertStatus">
+                            <span class="indicator-dot"></span>
+                            <span>Monitoring active</span>
+                        </div>
+                        <p class="status-location" id="userLocation">Location: --</p>
+                    </div>
+
+                    <div class="status-card">
+                        <h3>Latest Aurora Data</h3>
+                        <div class="aurora-stats" id="auroraStats">
+                            <div class="stat">
+                                <span class="stat-label">Max Probability</span>
+                                <span class="stat-value" id="maxProb">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Last Updated</span>
+                                <span class="stat-value" id="lastUpdate">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-actions">
+                    <button class="primary-button" onclick="testNotification()">Test Notification</button>
+                    <button class="secondary-button" onclick="showSettings()">Update Settings</button>
+                    <button class="danger-button" onclick="unsubscribe()">Unsubscribe</button>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Aurora Alert. Data from NOAA Space Weather Prediction Center.</p>
+            <p><a href="/docs" target="_blank">API Documentation</a></p>
+        </div>
+    </footer>
+
+
+    <!-- Error Toast -->
+    <div class="error-toast hidden" id="errorToast">
+        <span class="error-message" id="errorMessage"></span>
+        <button class="close-error" onclick="hideError()">×</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

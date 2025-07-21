@@ -19,19 +19,11 @@ class FCMService:
         try:
             # Check if Firebase app is already initialized
             if not firebase_admin._apps:
-                # In production, you'd use a service account JSON file
-                # For now, we'll use the server key (less secure but simpler)
-                cred = credentials.Certificate({
-                    "type": "service_account",
-                    "project_id": "your-project-id",
-                    "private_key_id": "key-id",
-                    "private_key": settings.fcm_server_key.replace('\\n', '\n'),
-                    "client_email": "firebase-adminsdk@your-project-id.iam.gserviceaccount.com",
-                    "client_id": "client-id",
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
-                })
+                import json
+                
+                # Parse the service account JSON from environment variable
+                service_account_info = json.loads(settings.fcm_service_account_json)
+                cred = credentials.Certificate(service_account_info)
                 
                 self.app = firebase_admin.initialize_app(cred)
                 logger.info("Firebase Admin SDK initialized successfully")
