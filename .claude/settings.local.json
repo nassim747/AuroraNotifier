@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export:*)",
+      "Bash(poetry add:*)"
+    ],
+    "deny": []
+  }
+}
