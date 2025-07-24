@@ -65,7 +65,6 @@ services:
 
   - type: static
     name: aurora-alert-frontend
-    buildCommand: echo "Static files ready"
     staticPublishPath: ./frontend
     routes:
       - type: rewrite
