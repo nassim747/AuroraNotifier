@@ -1,66 +1,69 @@
-import sqlite3
+import os
 from datetime import datetime
 from typing import List, Optional
 import logging
+from sqlalchemy import create_engine, Column, Integer, Float, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
 from ..engine.models import User
 from ..utils.config import settings
 
 logger = logging.getLogger(__name__)
 
+Base = declarative_base()
+
+class UserDB(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    lat = Column(Float, nullable=False)
+    lon = Column(Float, nullable=False)
+    radius_km = Column(Integer, default=250)
+    threshold = Column(Integer, default=15)
+    fcm_token = Column(String, nullable=False, unique=True)
+    last_notified = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    active = Column(Boolean, default=True)
+
+class AlertDB(Base):
+    __tablename__ = 'alerts'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    max_prob = Column(Float)
+    mean_prob = Column(Float)
+    cloud_coverage = Column(Float)
+    is_night = Column(Boolean)
+    should_notify = Column(Boolean)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 class Database:
-    def __init__(self, db_path: str = None):
-        self.db_path = db_path or settings.database_url.replace('sqlite:///', '')
+    def __init__(self, database_url: str = None):
+        self.database_url = database_url or settings.database_url
+        self.engine = create_engine(self.database_url)
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         self.init_database()
     
     def init_database(self):
         """Initialize the database with required tables."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    lat REAL NOT NULL,
-                    lon REAL NOT NULL,
-                    radius_km INTEGER DEFAULT 250,
-                    threshold INTEGER DEFAULT 15,
-                    fcm_token TEXT NOT NULL UNIQUE,
-                    last_notified TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    active BOOLEAN DEFAULT 1
-                )
-            ''')
-            
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS alerts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER,
-                    max_prob REAL,
-                    mean_prob REAL,
-                    cloud_coverage REAL,
-                    is_night BOOLEAN,
-                    should_notify BOOLEAN,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users (id)
-                )
-            ''')
-            
-            conn.commit()
+        try:
+            Base.metadata.create_all(bind=self.engine)
             logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing database: {e}")
+            raise
     
     def add_user(self, lat: float, lon: float, radius_km: int, threshold: int, fcm_token: str) -> Optional[User]:
         """Add a new user subscription."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute('''
-                    INSERT INTO users (lat, lon, radius_km, threshold, fcm_token)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (lat, lon, radius_km, threshold, fcm_token))
+            with self.SessionLocal() as session:
+                # Check if user already exists
+                existing = session.query(UserDB).filter(UserDB.fcm_token == fcm_token).first()
+                if existing:
+                    logger.warning(f"User with FCM token already exists")
+                    return None
                 
-                user_id = cursor.lastrowid
-                conn.commit()
-                
-                return User(
-                    id=user_id,
+                db_user = UserDB(
                     lat=lat,
                     lon=lon,
                     radius_km=radius_km,
@@ -69,9 +72,22 @@ class Database:
                     created_at=datetime.utcnow(),
                     active=True
                 )
-        except sqlite3.IntegrityError:
-            logger.warning(f"User with FCM token already exists")
-            return None
+                
+                session.add(db_user)
+                session.commit()
+                session.refresh(db_user)
+                
+                return User(
+                    id=db_user.id,
+                    lat=db_user.lat,
+                    lon=db_user.lon,
+                    radius_km=db_user.radius_km,
+                    threshold=db_user.threshold,
+                    fcm_token=db_user.fcm_token,
+                    last_notified=db_user.last_notified,
+                    created_at=db_user.created_at,
+                    active=db_user.active
+                )
         except Exception as e:
             logger.error(f"Error adding user: {e}")
             return None
@@ -79,15 +95,24 @@ class Database:
     def get_user_by_token(self, fcm_token: str) -> Optional[User]:
         """Get user by FCM token."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.execute('''
-                    SELECT * FROM users WHERE fcm_token = ? AND active = 1
-                ''', (fcm_token,))
+            with self.SessionLocal() as session:
+                db_user = session.query(UserDB).filter(
+                    UserDB.fcm_token == fcm_token,
+                    UserDB.active == True
+                ).first()
                 
-                row = cursor.fetchone()
-                if row:
-                    return User(**dict(row))
+                if db_user:
+                    return User(
+                        id=db_user.id,
+                        lat=db_user.lat,
+                        lon=db_user.lon,
+                        radius_km=db_user.radius_km,
+                        threshold=db_user.threshold,
+                        fcm_token=db_user.fcm_token,
+                        last_notified=db_user.last_notified,
+                        created_at=db_user.created_at,
+                        active=db_user.active
+                    )
                 return None
         except Exception as e:
             logger.error(f"Error getting user by token: {e}")
@@ -97,30 +122,28 @@ class Database:
                                threshold: Optional[int] = None) -> bool:
         """Update user preferences."""
         try:
-            updates = []
-            params = []
-            
-            if radius_km is not None:
-                updates.append("radius_km = ?")
-                params.append(radius_km)
-            
-            if threshold is not None:
-                updates.append("threshold = ?")
-                params.append(threshold)
-            
-            if not updates:
-                return True
-            
-            params.append(fcm_token)
-            
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(f'''
-                    UPDATE users SET {", ".join(updates)}
-                    WHERE fcm_token = ? AND active = 1
-                ''', params)
+            with self.SessionLocal() as session:
+                db_user = session.query(UserDB).filter(
+                    UserDB.fcm_token == fcm_token,
+                    UserDB.active == True
+                ).first()
                 
-                conn.commit()
-                return conn.total_changes > 0
+                if not db_user:
+                    return False
+                
+                updated = False
+                if radius_km is not None:
+                    db_user.radius_km = radius_km
+                    updated = True
+                
+                if threshold is not None:
+                    db_user.threshold = threshold
+                    updated = True
+                
+                if updated:
+                    session.commit()
+                
+                return updated
                 
         except Exception as e:
             logger.error(f"Error updating user preferences: {e}")
@@ -129,13 +152,17 @@ class Database:
     def deactivate_user(self, fcm_token: str) -> bool:
         """Deactivate a user subscription."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
-                    UPDATE users SET active = 0 WHERE fcm_token = ?
-                ''', (fcm_token,))
+            with self.SessionLocal() as session:
+                db_user = session.query(UserDB).filter(
+                    UserDB.fcm_token == fcm_token
+                ).first()
                 
-                conn.commit()
-                return conn.total_changes > 0
+                if db_user:
+                    db_user.active = False
+                    session.commit()
+                    return True
+                
+                return False
                 
         except Exception as e:
             logger.error(f"Error deactivating user: {e}")
@@ -144,15 +171,22 @@ class Database:
     def get_active_users(self) -> List[User]:
         """Get all active users."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.execute('''
-                    SELECT * FROM users WHERE active = 1
-                ''')
+            with self.SessionLocal() as session:
+                db_users = session.query(UserDB).filter(UserDB.active == True).all()
                 
                 users = []
-                for row in cursor.fetchall():
-                    users.append(User(**dict(row)))
+                for db_user in db_users:
+                    users.append(User(
+                        id=db_user.id,
+                        lat=db_user.lat,
+                        lon=db_user.lon,
+                        radius_km=db_user.radius_km,
+                        threshold=db_user.threshold,
+                        fcm_token=db_user.fcm_token,
+                        last_notified=db_user.last_notified,
+                        created_at=db_user.created_at,
+                        active=db_user.active
+                    ))
                 
                 return users
                 
@@ -163,13 +197,15 @@ class Database:
     def update_last_notified(self, user_id: int, timestamp: datetime) -> bool:
         """Update the last notified timestamp for a user."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
-                    UPDATE users SET last_notified = ? WHERE id = ?
-                ''', (timestamp, user_id))
+            with self.SessionLocal() as session:
+                db_user = session.query(UserDB).filter(UserDB.id == user_id).first()
                 
-                conn.commit()
-                return conn.total_changes > 0
+                if db_user:
+                    db_user.last_notified = timestamp
+                    session.commit()
+                    return True
+                
+                return False
                 
         except Exception as e:
             logger.error(f"Error updating last notified: {e}")
