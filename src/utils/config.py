@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     openweather_key: str
     fcm_service_account_json: str
+    fcm_vapid_private_key: Optional[str] = None
     database_url: str = "sqlite:///data/aurora_alert.db"
     
     radius_km: int = 250
