@@ -5,7 +5,9 @@ let userId = null;
 let messaging = null;
 
 // API Configuration - Change this to your deployed backend URL
-const API_BASE = 'http://localhost:8000';
+const API_BASE = window.location.hostname === 'localhost' 
+    ? 'http://localhost:8000' 
+    : 'https://aurora-alert-api.onrender.com';
 
 // Firebase Configuration - Replace with your actual Firebase config
 const firebaseConfig = {

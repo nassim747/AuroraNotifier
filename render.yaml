@@ -62,3 +62,12 @@ services:
         value: "INFO"
       - key: PYTHONPATH
         value: "/opt/render/project/src"
+
+  - type: static
+    name: aurora-alert-frontend
+    buildCommand: echo "Static files ready"
+    staticPublishPath: ./frontend
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
